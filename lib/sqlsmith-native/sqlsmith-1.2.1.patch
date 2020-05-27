@@ -1,0 +1,13 @@
+diff --git a/configure b/configure
+index 8e63458..602d45f 100755
+--- a/configure
++++ b/configure
+@@ -5548,7 +5548,7 @@ fi
+ $as_echo "$ax_cv_boost_regex" >&6; }
+ 		if test "x$ax_cv_boost_regex" = "xyes"; then
+ 
+-$as_echo "#define HAVE_BOOST_REGEX /**/" >>confdefs.h
++# $as_echo "#define HAVE_BOOST_REGEX /**/" >>confdefs.h
+ 
+             BOOSTLIBDIR=`echo $BOOST_LDFLAGS | sed -e 's/[^\/]*//'`
+             if test "x$ax_boost_user_regex_lib" = "x"; then

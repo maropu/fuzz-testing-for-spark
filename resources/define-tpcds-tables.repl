@@ -1,0 +1,40 @@
+// $ git clone https://github.com/maropu/spark-tpcds-datagen.git
+// $ cd spark-tpcds-datagen
+// $ ./bin/dsdgen --output-location /tmp/tpcds-sf-1
+// $ ./bin/spark-shell -I ./resources/define-tpcds-tables.repl
+val tpcdsDir = "/tmp/tpcds-sf-1"
+
+val tpcdsTables = Seq(
+  "call_center",
+  "catalog_page",
+  "catalog_returns",
+  "catalog_sales",
+  "customer",
+  "customer_address",
+  "customer_demographics",
+  "date_dim",
+  "household_demographics",
+  "income_band",
+  "inventory",
+  "item",
+  "promotion",
+  "reason",
+  "ship_mode",
+  "store",
+  "store_returns",
+  "store_sales",
+  "time_dim",
+  "warehouse",
+  "web_page",
+  "web_returns",
+  "web_sales",
+  "web_site"
+)
+
+tpcdsTables.foreach { r =>
+  val df = spark.read.load(s"$tpcdsDir/$r")
+  val ddl = df.schema.toDDL
+  println(s"Creating a table '$r' from '$tpcdsDir/$r'...")
+  sql(s"CREATE EXTERNAL TABLE $r ($ddl) STORED AS parquet LOCATION '$tpcdsDir/$r'")
+}
+
