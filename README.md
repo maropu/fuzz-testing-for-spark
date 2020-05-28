@@ -2,25 +2,28 @@
 
 This is an experimental SQL-aware fuzz tester for the Catalyst Optimizer in Spark; to detect corner case anomalies,
 it automatically generates various patterns of SQL inputs and run them on catalog tables.
-Some existing OSS comunities developing RDB-like systems
-(e.g., [SQLite](https://www.sqlite.org/testing.html#fuzztesting) [1] and
-[CockroachDB](https://www.cockroachlabs.com/blog/sqlsmith-randomized-sql-testing/) [2])
-already have exploited the testing technique for finding the bugs that would be time-consuming to come up with by hand.
-But, it has a common difficutly; there is no ground truth answer against generated inputs and it cannot deduce SQL correctness.
 
-To avoid the difficutly, a simple but efficient technique has been proposed in a recent research report [3].
+## Background
+
+Some existing OSS communities (e.g., [SQLite](https://www.sqlite.org/testing.html#fuzztesting) [1] and
+[CockroachDB](https://www.cockroachlabs.com/blog/sqlsmith-randomized-sql-testing/) [2])
+already have exploited the automatic testing technique for finding the bugs that would be time-consuming to come up with by hand.
+But, it has a common difficulty; there is no ground truth answer against generated inputs and it cannot naively deduce SQL correctness.
+
+To mitigate the issue, a simple but efficient technique has been proposed in a recent research report [3].
 This is named Non-Optimizing Reference Engine Construction (NoREC), a fully-automatic approach to detect optimization bugs in relational database systems.
 This technique does not depend on ground truth answers, but uses output of non-optimized queries.
-Specifically, it just compares output rows of optimized and non-optimized queries
+Specifically, it just compares output rows between optimized and non-optimized queries
 on the assumption that an relational optimizer does not change them.
 The proposed technique employs a black box approach to get non-optimized versions of queries;
 it rewrites input queries syntactically, so it is not specific to any database system implementatons.
+This technique is broadly applicable to existing databases, but it is limited to tests in WHERE clause optimizations.
 
 Fortunately, Spark has [a configuration](https://github.com/apache/spark/blob/8bbb666622e042c1533da294ac7b504b6aaa694a/sql/catalyst/src/main/scala/org/apache/spark/sql/internal/SQLConf.scala#L184-L191) to disable rules defined in the Catalyst optimizer.
 This enables us to easily check output of non-optimized queries in an application side and
 this tester exploits it to detect optimizer anomalies.
 
-**This repository is work-in-progress; invalid SQL inputs for Spark SQL are generated many times (See [TODO](https://github.com/maropu/fuzz-testing-in-spark#todo)). To make them more meaningful, it needs to mutates SQL inputs based on [the Spark ANTLR grammer file](https://github.com/apache/spark/blob/master/sql/catalyst/src/main/antlr4/org/apache/spark/sql/catalyst/parser/SqlBase.g4).**
+**This repository is work-in-progress; invalid SQL inputs for Spark SQL are generated many times (See [TODO](https://github.com/maropu/fuzz-testing-in-spark#todo)). To make them more meaningful, it needs to mutates SQL inputs based on [the Spark ANTLR grammar file](https://github.com/apache/spark/blob/master/sql/catalyst/src/main/antlr4/org/apache/spark/sql/catalyst/parser/SqlBase.g4).**
 
 ## How to Use This Fuzzer
 
@@ -51,9 +54,9 @@ this tester exploits it to detect optimizer anomalies.
 ## TODO
 
  - Generates Spark SQL acceptable SQL inputs
-   - The corrent code just dumps all tables in a Spark catalog as a file-based SQLite database, then generates SQLite-aware queries based on the database via SQLSmith.
+   - The current code just dumps all tables in a Spark catalog as a file-based SQLite database, then generates SQLite-aware queries based on the database via SQLSmith.
  - Makes the bundled native library more portable
-   - It has unused dependencies to other shared libries (e.g., libpqxx)
+   - It has unused dependencies to other shared libraries (e.g., libpqxx)
 
 ## References
 
