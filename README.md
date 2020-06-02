@@ -53,7 +53,7 @@ this tester exploits it to detect optimizer anomalies.
 
 ## TODO
 
- - Generates Spark SQL acceptable SQL inputs
+ - Generates Spark SQL acceptable SQL inputs ([Issues#1](https://github.com/maropu/fuzz-testing-for-spark/issues/1))
    - The current code just dumps all tables in a Spark catalog as a file-based SQLite database, then generates SQLite-aware queries based on the database via SQLSmith.
  - Makes the bundled native library more portable
    - It has unused dependencies to other shared libraries (e.g., libpqxx)
