@@ -22,6 +22,7 @@ import scala.util.Try
 class FuzzerArguments(val args: Array[String]) {
   var outputLocation: String = null
   var maxStmts = "10"
+  var loggingExceptionsEnabled = false
   var seed = "0"
 
   parseArgs(args.toList)
@@ -38,6 +39,10 @@ class FuzzerArguments(val args: Array[String]) {
 
         case ("--max-stmts") :: value :: tail =>
           maxStmts = value
+          args = tail
+
+        case ("--logging-exceptions") :: tail =>
+          loggingExceptionsEnabled = true
           args = tail
 
         case ("--seed") :: value :: tail =>
@@ -63,6 +68,7 @@ class FuzzerArguments(val args: Array[String]) {
       |Options:
       |  --output-location [STR]   Path to an output location
       |  --max-stmts [NUM]         Terminates after generating this many queries (default: 10)
+      |  --logging-exceptions      Whether exception logged in the output location (default: false)
       |  --seed [NUM]              seed RNG with specified value (default: 0)
       |
       """.stripMargin)

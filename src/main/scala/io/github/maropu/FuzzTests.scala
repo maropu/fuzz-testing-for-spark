@@ -175,8 +175,7 @@ object FuzzTests {
         val numValidStmts = numStmtGenerated - numErrors
         val numValidTestRatio = (numValidStmts + 0.0) / numStmtGenerated
         val errStats = errStore.toSeq.sortBy(_._2).reverse.map { case (e, n) => s"# of $e: $n" }
-        s"""
-           |Fuzz testing statistics:
+        s"""Fuzz testing statistics:
            |  valid test ratio: $numValidTestRatio ($numValidStmts/$numStmtGenerated)
            |  # of found logic errors: $numLogicErrors
            |  ${errStats.mkString("\n  ")}
@@ -188,30 +187,30 @@ object FuzzTests {
         override def run(): Unit = dumpTestingStats()
       })
 
+      val blackListExceptionMsgs = Seq(
+        "Expressions referencing the outer query are not supported outside of WHERE/HAVING clauses"
+      )
+
       try {
         val maxStmts = arguments.maxStmts.toLong
         val isInfinite = maxStmts == 0
         while (isInfinite || numStmtGenerated < maxStmts) {
+          val sqlFuzz = sqlSmithApi.getSQLFuzz(sqlSmithSchema)
+          numStmtGenerated += 1
+
+          // Prints the stats periodically
+          if (numStmtGenerated % 1000 == 0) {
+            dumpTestingStats()
+          }
+
           try {
-            val fuzz = sqlSmithApi.getSQLFuzz(sqlSmithSchema)
-            numStmtGenerated += 1
-
-            // Prints the stats periodically
-            if (numStmtGenerated % 1000 == 0) {
-              dumpTestingStats()
-            }
-
-            val optNum = withOptimized {
-              spark.sql(fuzz).count()
-            }
-            val nonOptNum = withoutOptimized {
-              spark.sql(fuzz).count()
-            }
+            val optNum = withOptimized { spark.sql(sqlFuzz).count() }
+            val nonOptNum = withoutOptimized { spark.sql(sqlFuzz).count() }
             // TODO: We need more strict checks for the answers
             if (optNum != nonOptNum) {
               Files.write(
-                s"""-- query: optNum($optNum) != nonOptNum($nonOptNum)
-                   |$fuzz
+                s"""##### query: optNum($optNum) != nonOptNum($nonOptNum) #####
+                   |$sqlFuzz
                  """.stripMargin,
                 new File(outputDir, s"$numLogicErrors.log"),
                 StandardCharsets.UTF_8
@@ -220,9 +219,30 @@ object FuzzTests {
             }
           } catch {
             case NonFatal(e) =>
-              val errName = e.getClass.getSimpleName
-              val curVal = errStore.getOrElseUpdate(errName, 0)
-              errStore.update(errName, curVal + 1)
+              // If enabled, outputs an exception log
+              val exceptionName = e.getClass.getSimpleName
+              if (arguments.loggingExceptionsEnabled) {
+                val exceptionMsg = e.getMessage
+                if (!blackListExceptionMsgs.exists(exceptionMsg.contains)) {
+                  val exceptionLoggingDir = new File(outputDir, exceptionName)
+                  if (!exceptionLoggingDir.exists()) {
+                    exceptionLoggingDir.mkdir()
+                  }
+                  Files.write(
+                    s"""##### ${e.getClass.getCanonicalName} #####
+                       |$exceptionMsg
+                       |Generated SQL Fuzz:
+                       |$sqlFuzz
+                     """.stripMargin,
+                    new File(exceptionLoggingDir, s"$numStmtGenerated.log"),
+                    StandardCharsets.UTF_8
+                  )
+                }
+              }
+
+              // Finally, updates exception stats
+              val curVal = errStore.getOrElseUpdate(exceptionName, 0)
+              errStore.update(exceptionName, curVal + 1)
             case e =>
               throw new RuntimeException(s"Fuzz testing stopped because: $e")
           }

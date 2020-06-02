@@ -1,7 +1,16 @@
 diff --git a/configure b/configure
-index 8e63458..602d45f 100755
+index 8e63458..0db44c9 100755
 --- a/configure
 +++ b/configure
+@@ -4739,7 +4739,7 @@ $as_echo "$as_me: Your boost libraries seems to old (version $_version)." >&6;}
+ 
+ 
+ 
+-$as_echo "#define HAVE_BOOST /**/" >>confdefs.h
++# $as_echo "#define HAVE_BOOST /**/" >>confdefs.h
+ 
+         # execute ACTION-IF-FOUND (if present):
+         :
 @@ -5548,7 +5548,7 @@ fi
  $as_echo "$ax_cv_boost_regex" >&6; }
  		if test "x$ax_cv_boost_regex" = "xyes"; then
@@ -11,3 +20,253 @@ index 8e63458..602d45f 100755
  
              BOOSTLIBDIR=`echo $BOOST_LDFLAGS | sed -e 's/[^\/]*//'`
              if test "x$ax_boost_user_regex_lib" = "x"; then
+diff --git a/expr.cc b/expr.cc
+index 0580f35..c036135 100644
+--- a/expr.cc
++++ b/expr.cc
+@@ -14,6 +14,15 @@
+ using namespace std;
+ using impedance::matched;
+ 
++// A helper method to convert a SQLite type name to Spark one
++static inline std::string to_spark_type_name(const std::string& sqlite_type_name) {
++  if (sqlite_type_name == "TEXT") {
++    return "STRING";
++  } else {
++    return sqlite_type_name;
++  }
++}
++
+ shared_ptr<value_expr> value_expr::factory(prod *p, sqltype *type_constraint)
+ {
+   try {
+@@ -189,7 +198,7 @@ void coalesce::out(std::ostream &out)
+       out << ",", indent(out);
+   }
+   out << ")";
+-  out << " as " << type->name << ")";
++  out << " as " << to_spark_type_name(type->name) << ")";
+ }
+ 
+ const_expr::const_expr(prod *p, sqltype *type_constraint)
+@@ -204,7 +213,7 @@ const_expr::const_expr(prod *p, sqltype *type_constraint)
+   else if (dynamic_cast<insert_stmt*>(p) && (d6() > 3))
+     expr += "default";
+   else
+-    expr += "cast(null as " + type->name + ")";
++    expr += "cast(null as " + to_spark_type_name(type->name) + ")";
+ }
+ 
+ funcall::funcall(prod *p, sqltype *type_constraint, bool agg)
+@@ -265,7 +274,7 @@ void funcall::out(std::ostream &out)
+   out << proc->ident() << "(";
+   for (auto expr = parms.begin(); expr != parms.end(); expr++) {
+     indent(out);
+-    out << "cast(" << **expr << " as " << (*expr)->type->name << ")";
++    out << "cast(" << **expr << " as " << to_spark_type_name((*expr)->type->name) << ")";
+     if (expr+1 != parms.end())
+       out << ",";
+   }
+@@ -328,7 +337,7 @@ void atomic_subselect::out(std::ostream &out)
+   out << " from " << tab->ident();
+ 
+   if (!agg)
+-    out << " limit 1 offset " << offset;
++    out << " limit 1 ";
+ 
+   out << ")";
+   indent(out);
+diff --git a/grammar.cc b/grammar.cc
+index 62aa8e9..26feb8a 100644
+--- a/grammar.cc
++++ b/grammar.cc
+@@ -72,10 +72,7 @@ table_sample::table_sample(prod *p) : table_ref(p) {
+ }
+ 
+ void table_sample::out(std::ostream &out) {
+-  out << t->ident() <<
+-    " as " << refs[0]->ident() <<
+-    " tablesample " << method <<
+-    " (" << percent << ") ";
++  out << t->ident() << " as " << refs[0]->ident();
+ }
+ 
+ table_subquery::table_subquery(prod *p, bool lateral)
+@@ -171,11 +168,13 @@ joined_table::joined_table(prod *p) : table_ref(p) {
+ }
+ 
+ void joined_table::out(std::ostream &out) {
++  out << "(";
+   out << *lhs;
+   indent(out);
+   out << type << " join " << *rhs;
+   indent(out);
+   out << "on (" << *condition << ")";
++  out << ")";
+ }
+ 
+ void table_subquery::out(std::ostream &out) {
+@@ -467,19 +466,19 @@ shared_ptr<prod> statement_factory(struct scope *s)
+ {
+   try {
+     s->new_stmt();
+-    if (d42() == 1)
+-      return make_shared<merge_stmt>((struct prod *)0, s);
+-    if (d42() == 1)
+-      return make_shared<insert_stmt>((struct prod *)0, s);
+-    else if (d42() == 1)
+-      return make_shared<delete_returning>((struct prod *)0, s);
+-    else if (d42() == 1) {
+-      return make_shared<upsert_stmt>((struct prod *)0, s);
+-    } else if (d42() == 1)
+-      return make_shared<update_returning>((struct prod *)0, s);
+-    else if (d6() > 4)
+-      return make_shared<select_for_update>((struct prod *)0, s);
+-    else if (d6() > 5)
++    // if (d42() == 1)
++    //   return make_shared<merge_stmt>((struct prod *)0, s);
++    // if (d42() == 1)
++    //   return make_shared<insert_stmt>((struct prod *)0, s);
++    // else if (d42() == 1)
++    //   return make_shared<delete_returning>((struct prod *)0, s);
++    // else if (d42() == 1) {
++    //   return make_shared<upsert_stmt>((struct prod *)0, s);
++    // } else if (d42() == 1)
++    //   return make_shared<update_returning>((struct prod *)0, s);
++    // else if (d6() > 4)
++    //   return make_shared<select_for_update>((struct prod *)0, s);
++    if (d6() > 5)
+       return make_shared<common_table_expression>((struct prod *)0, s);
+     return make_shared<query_spec>((struct prod *)0, s);
+   } catch (runtime_error &e) {
+diff --git a/grammar.hh b/grammar.hh
+index 58bbadd..12fe42a 100644
+--- a/grammar.hh
++++ b/grammar.hh
+@@ -56,7 +56,7 @@ struct table_subquery : table_ref {
+ 
+ struct lateral_subquery : table_subquery {
+   lateral_subquery(prod *p)
+-    : table_subquery(p, true) {  }
++    : table_subquery(p, false) {  }
+ };
+ 
+ struct join_cond : prod {
+diff --git a/sqlite.cc b/sqlite.cc
+index acab950..ac90857 100644
+--- a/sqlite.cc
++++ b/sqlite.cc
+@@ -45,7 +45,7 @@ extern "C" int table_callback(void *arg, int argc, char **argv, char **azColName
+   (void) argc; (void) azColName;
+   auto tables = (vector<table> *)arg;
+   bool view = (string("view") == argv[0]);
+-  table tab(argv[2], "main", !view, !view);
++  table tab(argv[2], "default", !view, !view);
+   tables->push_back(tab);
+   return 0;
+ }
+@@ -134,7 +134,7 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
+ 
+ #define BINOP(n,t) do {op o(#n,sqltype::get(#t),sqltype::get(#t),sqltype::get(#t)); register_operator(o); } while(0)
+ 
+-  BINOP(||, TEXT);
++  BINOP(||, STRING);
+   BINOP(*, INTEGER);
+   BINOP(/, INTEGER);
+ 
+@@ -188,42 +188,42 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
+ 
+   FUNC(last_insert_rowid, INTEGER);
+   FUNC(random, INTEGER);
+-  FUNC(sqlite_source_id, TEXT);
+-  FUNC(sqlite_version, TEXT);
++  FUNC(sqlite_source_id, STRING);
++  FUNC(sqlite_version, STRING);
+   FUNC(total_changes, INTEGER);
+ 
+   FUNC1(abs, INTEGER, REAL);
+-  FUNC1(hex, TEXT, TEXT);
+-  FUNC1(length, INTEGER, TEXT);
+-  FUNC1(lower, TEXT, TEXT);
+-  FUNC1(ltrim, TEXT, TEXT);
+-  FUNC1(quote, TEXT, TEXT);
+-  FUNC1(randomblob, TEXT, INTEGER);
++  FUNC1(hex, STRING, STRING);
++  FUNC1(length, INTEGER, STRING);
++  FUNC1(lower, STRING, STRING);
++  FUNC1(ltrim, STRING, STRING);
++  FUNC1(quote, STRING, STRING);
++  FUNC1(randomblob, STRING, INTEGER);
+   FUNC1(round, INTEGER, REAL);
+-  FUNC1(rtrim, TEXT, TEXT);
+-  FUNC1(soundex, TEXT, TEXT);
+-  FUNC1(sqlite_compileoption_get, TEXT, INTEGER);
+-  FUNC1(sqlite_compileoption_used, INTEGER, TEXT);
+-  FUNC1(trim, TEXT, TEXT);
+-  FUNC1(typeof, TEXT, INTEGER);
+-  FUNC1(typeof, TEXT, NUMERIC);
+-  FUNC1(typeof, TEXT, REAL);
+-  FUNC1(typeof, TEXT, TEXT);
+-  FUNC1(unicode, INTEGER, TEXT);
+-  FUNC1(upper, TEXT, TEXT);
+-  FUNC1(zeroblob, TEXT, INTEGER);
+-
+-  FUNC2(glob, INTEGER, TEXT, TEXT);
+-  FUNC2(instr, INTEGER, TEXT, TEXT);
+-  FUNC2(like, INTEGER, TEXT, TEXT);
+-  FUNC2(ltrim, TEXT, TEXT, TEXT);
+-  FUNC2(rtrim, TEXT, TEXT, TEXT);
+-  FUNC2(trim, TEXT, TEXT, TEXT);
++  FUNC1(rtrim, STRING, STRING);
++  FUNC1(soundex, STRING, STRING);
++  FUNC1(sqlite_compileoption_get, STRING, INTEGER);
++  FUNC1(sqlite_compileoption_used, INTEGER, STRING);
++  FUNC1(trim, STRING, STRING);
++  FUNC1(typeof, STRING, INTEGER);
++  FUNC1(typeof, STRING, NUMERIC);
++  FUNC1(typeof, STRING, REAL);
++  FUNC1(typeof, STRING, STRING);
++  FUNC1(unicode, INTEGER, STRING);
++  FUNC1(upper, STRING, STRING);
++  FUNC1(zeroblob, STRING, INTEGER);
++
++  FUNC2(glob, INTEGER, STRING, STRING);
++  FUNC2(instr, INTEGER, STRING, STRING);
++  FUNC2(like, INTEGER, STRING, STRING);
++  FUNC2(ltrim, STRING, STRING, STRING);
++  FUNC2(rtrim, STRING, STRING, STRING);
++  FUNC2(trim, STRING, STRING, STRING);
+   FUNC2(round, INTEGER, REAL, INTEGER);
+-  FUNC2(substr, TEXT, TEXT, INTEGER);
++  FUNC2(substr, STRING, STRING, INTEGER);
+ 
+-  FUNC3(substr, TEXT, TEXT, INTEGER, INTEGER);
+-  FUNC3(replace, TEXT, TEXT, TEXT, TEXT);
++  FUNC3(substr, STRING, STRING, INTEGER, INTEGER);
++  FUNC3(replace, STRING, STRING, STRING, STRING);
+ 
+ 
+ #define AGG(n,r, a) do {						\
+@@ -235,9 +235,9 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
+   AGG(avg, INTEGER, INTEGER);
+   AGG(avg, REAL, REAL);
+   AGG(count, INTEGER, REAL);
+-  AGG(count, INTEGER, TEXT);
++  AGG(count, INTEGER, STRING);
+   AGG(count, INTEGER, INTEGER);
+-  AGG(group_concat, TEXT, TEXT);
++  AGG(group_concat, STRING, STRING);
+   AGG(max, REAL, REAL);
+   AGG(max, INTEGER, INTEGER);
+   AGG(sum, REAL, REAL);
+@@ -251,8 +251,8 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
+   internaltype = sqltype::get("internal");
+   arraytype = sqltype::get("ARRAY");
+ 
+-  true_literal = "1";
+-  false_literal = "0";
++  true_literal = "TRUE";
++  false_literal = "FALSE";
+ 
+   generate_indexes();
+   sqlite3_close(db);
