@@ -25,6 +25,8 @@ this tester exploits it to detect optimizer anomalies.
 
 **This repository is work-in-progress; invalid SQL inputs for Spark SQL are generated many times (See [TODO](https://github.com/maropu/fuzz-testing-in-spark#todo)). To make them more meaningful, it needs to mutates SQL inputs based on [the Spark ANTLR grammar file](https://github.com/apache/spark/blob/master/sql/catalyst/src/main/antlr4/org/apache/spark/sql/catalyst/parser/SqlBase.g4).**
 
+NOTE: A fuzz testing aaproach for Spark will be presented in the workshop on Testing Database Systems (DBTest'20) [5].
+
 ## How to Use This Fuzzer
 
     // You need to set a `SPARK_HOME` env to your target Spark repository
@@ -64,6 +66,7 @@ this tester exploits it to detect optimizer anomalies.
  - [2] SQLsmith: Randomized SQL Testing in CockroachDB, https://www.cockroachlabs.com/blog/sqlsmith-randomized-sql-testing.
  - [3] Manuel Rigger and Zhendong Su, [Detecting Optimization Bugs in Database Engines via Non-Optimizing Reference Engine Construction](https://www.manuelrigger.at/publications/), Proceedings of the 28th ESEC/FSE, 2020.
  - [4] Andreas Seltenreich, Bug Squashing with SQLSmith, PGCONF.EU 2018, https://www.postgresql.eu/events/pgconfeu2018/sessions/session/2221-bug-squashing-with-sqlsmith.
+ - [5] Bogdan Ghit et al, SparkFuzz: Searching Correctness Regressions in Modern Query Engines, Proceedings of the Workshop on Testing Database Systems, 2020.
 
 ## Bug Reports
 
