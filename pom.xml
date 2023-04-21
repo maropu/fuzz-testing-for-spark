@@ -36,7 +36,7 @@
     <maven.version>3.6.3</maven.version>
     <scala.version>2.12.10</scala.version>
     <scala.binary.version>2.12</scala.binary.version>
-    <spark.version>3.0.0-preview2</spark.version>
+    <spark.version>3.4.0</spark.version>
     <spark.binary.version>3.0</spark.binary.version>
     <sqlsmith.version>1.2.1</sqlsmith.version>
     <scalatest.version>3.0.8</scalatest.version>
