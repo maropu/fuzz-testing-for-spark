@@ -41,7 +41,7 @@
     <sqlsmith.version>1.2.1</sqlsmith.version>
     <scalatest.version>3.0.8</scalatest.version>
     <snappy.version>1.1.7.3</snappy.version>
-    <sqlite.version>3.31.1</sqlite.version>
+    <sqlite.version>3.41.2.2</sqlite.version>
 
     <test.java.home>${java.home}</test.java.home>
     <test.exclude.tags></test.exclude.tags>
